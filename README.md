@@ -25,9 +25,9 @@ $ pip install -r syncgmenv/requirements.txt
 
 ### Configuration file
 
-Copy REPOSITORY\_ROOT/src/config.yml.sample to REPOSITORYi\_ROOT/src/config.yml and edit in it.
+Copy config.yml.sample to config.yml and edit in it.
 
 ## Run
 
-Run src/sync.py!!!
+Run sync.py!!!
 

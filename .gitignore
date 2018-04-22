@@ -3,7 +3,7 @@
 ################################
 syncgmenv/*
 !syncgmenv/requirements.txt
-src/config.yml
+config.yml
 *.log
 
 ################################
