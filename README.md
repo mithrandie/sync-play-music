@@ -2,6 +2,12 @@
 
 A Utility for syncronizing music files between Google Play Music and your computer.
 
+## Supported file types
+
+- MP3
+- AAC
+- ALAC(16 bits per sample rate)
+- FLAC
 
 ## Requirements
 
