@@ -6,6 +6,9 @@ from gmusicapi import Mobileclient
 from gmusicapi import Musicmanager
 import logging
 import mutagen
+from mutagen.flac import FLAC
+from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4
 import os
 from os import path
 import sys
@@ -54,7 +57,7 @@ def search_config(config_tree, items, default):
         return default
 
 
-logging.info("######## STARTED at %s ########" % datetime.now().isoformat())
+log("######## STARTED at %s ########" % datetime.now().isoformat())
 
 if False == path.isfile(configFile):
     exit_with_error("Config file does not exist.")
@@ -135,8 +138,7 @@ for dir in directories:
 
             incompatible = False
 
-            mediaType = media.__class__.__name__
-            if mediaType == "MP3":
+            if isinstance(media, MP3):
                 trackInfo = {
                         "title": media["TIT2"].text[0],
                         "album": media["TALB"].text[0] if "TALB" in media else "",
@@ -145,7 +147,7 @@ for dir in directories:
                         "trackNumber": int(media["TRCK"].text[0].split("/")[0]) if "TRCK" in media else 0,
                         "filepath": filepath
                         }
-            elif mediaType == "FLAC":
+            elif isinstance(media, FLAC):
                 trackInfo = {
                         "title": media["title"][0],
                         "album": media["album"][0] if "album" in media else "",
@@ -154,7 +156,7 @@ for dir in directories:
                         "trackNumber": int(media["tracknumber"][0].split("/")[0]) if "tracknumber" in media else 0,
                         "filepath": filepath
                         }
-            elif mediaType == "MP4":
+            elif isinstance(media, MP4):
                 trackInfo = {
                         "title": media["\xa9nam"][0],
                         "album": media["\xa9alb"][0] if "\xa9alb" in media else "",
@@ -234,6 +236,6 @@ if 0 < len(uploadSongs):
 info("Upload to Play Music has been completed: %s song(s)" % len(uploadSongs))
 
 
-logging.info("######## TERMINATED at %s ########" % datetime.now().isoformat())
+log("######## TERMINATED at %s ########" % datetime.now().isoformat())
 sys.exit(0)
 
