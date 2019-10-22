@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#-*-coding: utf-8 -*-
+# -*-coding: utf-8 -*-
 
 from datetime import datetime
 from gmusicapi import Mobileclient
@@ -16,35 +16,35 @@ import yaml
 
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
 
-logging.basicConfig(filename='sync-play-music.log',level=logging.DEBUG)
-configFile = path.join(path.abspath(path.dirname(__file__)), "config.yml")
-
-def exit_with_error(message, code = 0):
-    logging.error(message)
-    sys.stderr.write("\x1b[1;%dm" % (30 + RED) + message + "\x1b[0m\n")
+def exit_with_error(msg, code=0):
+    logging.error(msg)
+    sys.stderr.write("\x1b[1;%dm" % (30 + RED) + msg + "\x1b[0m\n")
     sys.exit(code)
 
-def warn(message):
-    logging.warning(message)
-    sys.stdout.write("\x1b[1;%dm" % (30 + YELLOW) + message + "\x1b[0m\n")
 
-def info(message):
-    logging.info(message)
-    sys.stdout.write("\x1b[1;%dm" % (30 + GREEN) + message + "\x1b[0m\n")
-
-def log(message):
-    logging.info(message)
-
-def message(message):
-    logging.info(message)
-    sys.stdout.write(message + "\n")
+def warn(msg):
+    logging.warning(msg)
+    sys.stdout.write("\x1b[1;%dm" % (30 + YELLOW) + msg + "\x1b[0m\n")
 
 
-def get_config(configPath, default=''):
-    return search_config(config, configPath.split('.'), default)
+def info(msg):
+    logging.info(msg)
+    sys.stdout.write("\x1b[1;%dm" % (30 + GREEN) + msg + "\x1b[0m\n")
+
+
+def log(msg):
+    logging.info(msg)
+
+
+def message(msg):
+    logging.info(msg)
+    sys.stdout.write(msg + "\n")
+
+
+def get_config(conf, config_path, default=''):
+    return search_config(conf, config_path.split('.'), default)
+
 
 def search_config(config_tree, items, default):
     if items[0] in config_tree:
@@ -57,185 +57,193 @@ def search_config(config_tree, items, default):
         return default
 
 
-log("######## STARTED at %s ########" % datetime.now().isoformat())
+def main():
+    logging.basicConfig(filename='sync-play-music.log', level=logging.DEBUG)
+    config_file = path.join(path.abspath(path.dirname(__file__)), "config.yml")
 
-if False == path.isfile(configFile):
-    exit_with_error("Config file does not exist.")
+    log("######## STARTED at %s ########" % datetime.now().isoformat())
 
-try:
-    with open(configFile, 'r') as f:
-        config = yaml.load(f)
-except Exception as e:
-    exit_with_error("Cannot read config file:" + str(e))
+    if not path.isfile(config_file):
+        exit_with_error("Config file does not exist.")
 
+    config = None
 
-manager = Musicmanager()
-if False == manager.login():
-    warn("Please authorize your account and re-run this script.")
-    manager.perform_oauth()
-    sys.exit(0)
+    try:
+        with open(config_file, 'r') as f:
+            config = yaml.load(f, Loader=yaml.BaseLoader)
+    except Exception as e:
+        exit_with_error("Cannot read config file:" + str(e))
 
-client = Mobileclient()
-if False == client.login(get_config("Auth.Account"), get_config("Auth.Password"), Mobileclient.FROM_MAC_ADDRESS):
-    exit_with_error("Authorization failed.")
+    manager = Musicmanager()
+    if not manager.login():
+        warn("Please authorize your account and re-run this script.")
+        manager.perform_oauth()
+        sys.exit(0)
 
+    client = Mobileclient()
+    if not client.login(
+            get_config(config, "Auth.Account"),
+            get_config(config, "Auth.Password"),
+            Mobileclient.FROM_MAC_ADDRESS):
+        exit_with_error("Authorization failed.")
 
-message("Retriving Uploaded Songs...")
-library = client.get_all_songs()
+    message("Retriving Uploaded Songs...")
+    library = client.get_all_songs()
 
-storedTracks = {}
-deletedTrackList = []
-duplicateTrackList = []
-for track in library:
-    trackInfo = {
+    stored_tracks = {}
+    deleted_track_list = []
+    duplicate_track_list = []
+    for track in library:
+        track_info = {
             "id": track["id"],
             "title": track["title"],
             "album": track["album"] if "album" in track else "",
             "artist": track["artist"] if "artist" in track else "",
             "discNumber": track["discNumber"] if "discNumber" in track else 0,
             "trackNumber": track["trackNumber"] if "trackNumber" in track else 0
-            }
+        }
 
-    if track["deleted"]:
-        deletedTrackList.append(trackInfo)
-    else:
-        trackKey = (
+        if track["deleted"]:
+            deleted_track_list.append(track_info)
+        else:
+            track_key = (
                 track["title"],
                 track["album"] if "album" in track else "",
                 track["artist"] if "artist" in track else "",
                 track["discNumber"] if "discNumber" in track else 0,
                 track["trackNumber"] if "trackNumber" in track else 0
-                )
+            )
 
-        if trackKey in storedTracks:
-            duplicateTrackList.append(trackInfo)
-        else:
-            storedTracks[trackKey] = trackInfo
+            if track_key in stored_tracks:
+                duplicate_track_list.append(track_info)
+            else:
+                stored_tracks[track_key] = track_info
 
-info("Songs on Play Music: %d, Deleted: %d, Duplicate: %d" % (len(storedTracks), len(deletedTrackList), len(duplicateTrackList)))
+    info("Songs on Play Music: %d, Deleted: %d, Duplicate: %d" % (
+        len(stored_tracks), len(deleted_track_list), len(duplicate_track_list)))
 
+    message("Searching Local Songs...")
+    local_tracks = {}
+    incompatible_track_list = []
+    local_duplicate_track_list = []
+    directories = get_config(config, "Upload.Directories")
+    for d in directories:
+        if not path.isdir(d):
+            exit_with_error("Directory does not exist: %s" % d)
 
-message("Searching Local Songs...")
-localTracks = {}
-incompatibleTrackList = []
-localDuplicateTrackList = []
-directories = get_config("Upload.Directories")
-for dir in directories:
-    if False == path.isdir(dir):
-        exit_with_error("Directory does not exist: %s" % dir)
+        for root, _, files in os.walk(d):
+            for filename in files:
+                filepath = path.join(root, filename)
+                _, ext = path.splitext(filepath)
 
-    for root, _, files in os.walk(dir):
-        for filename in files:
-            filepath = path.join(root, filename)
-            _, ext = path.splitext(filepath)
+                if ext not in [".mp3", ".m4a", ".flac"]:
+                    continue
 
-            if ext not in [".mp3", ".m4a", ".flac"]:
-                continue
+                media = mutagen.File(filepath)
+                if media is None:
+                    continue
 
-            media = mutagen.File(filepath)
-            if media is None:
-                continue
+                incompatible = False
 
-            incompatible = False
-
-            if isinstance(media, MP3):
-                trackInfo = {
+                if isinstance(media, MP3):
+                    track_info = {
                         "title": media["TIT2"].text[0],
                         "album": media["TALB"].text[0] if "TALB" in media else "",
                         "artist": media["TPE1"].text[0] if "TPE1" in media else "",
                         "discNumber": int(media["TPOS"].text[0].split("/")[0]) if "TPOS" in media else 0,
                         "trackNumber": int(media["TRCK"].text[0].split("/")[0]) if "TRCK" in media else 0,
                         "filepath": filepath
-                        }
-            elif isinstance(media, FLAC):
-                trackInfo = {
+                    }
+                elif isinstance(media, FLAC):
+                    track_info = {
                         "title": media["title"][0],
                         "album": media["album"][0] if "album" in media else "",
                         "artist": media["artist"][0] if "artist" in media else "",
                         "discNumber": int(media["discnumber"][0].split("/")[0]) if "discnumber" in media else 0,
                         "trackNumber": int(media["tracknumber"][0].split("/")[0]) if "tracknumber" in media else 0,
                         "filepath": filepath
-                        }
-            elif isinstance(media, MP4):
-                trackInfo = {
+                    }
+                elif isinstance(media, MP4):
+                    track_info = {
                         "title": media["\xa9nam"][0],
                         "album": media["\xa9alb"][0] if "\xa9alb" in media else "",
                         "artist": media["\xa9ART"][0] if "\xa9ART" in media else "",
                         "discNumber": int(media["disk"][0][0]) if "disk" in media else 0,
                         "trackNumber": int(media["trkn"][0][0]) if "trkn" in media else 0,
                         "filepath": filepath
-                        }
+                    }
 
-                if media.info.codec == "alac":
-                    if media.info.bits_per_sample != 16:
-                        incompatible = True
-                elif media.info.codec.startswith("mp4a.40."):
-                    None
+                    if media.info.codec == "alac":
+                        if media.info.bits_per_sample != 16:
+                            incompatible = True
+                    elif media.info.codec.startswith("mp4a.40."):
+                        pass
+                    else:
+                        continue
                 else:
                     continue
-            else:
-                continue
 
-            if incompatible:
-                incompatibleTrackList.append(trackInfo)
-            else:
-                trackKey = (
-                        trackInfo["title"],
-                        trackInfo["album"],
-                        trackInfo["artist"],
-                        trackInfo["discNumber"],
-                        trackInfo["trackNumber"]
-                        )
-
-                if trackKey in localTracks:
-                    localDuplicateTrackList.append(trackInfo)
+                if incompatible:
+                    incompatible_track_list.append(track_info)
                 else:
-                    localTracks[trackKey] = trackInfo
+                    track_key = (
+                        track_info["title"],
+                        track_info["album"],
+                        track_info["artist"],
+                        track_info["discNumber"],
+                        track_info["trackNumber"]
+                    )
 
-info("Songs on Local: %d, Incompatible: %d, Duplicate: %d" % (len(localTracks), len(incompatibleTrackList), len(localDuplicateTrackList)))
+                    if track_key in local_tracks:
+                        local_duplicate_track_list.append(track_info)
+                    else:
+                        local_tracks[track_key] = track_info
+
+    info("Songs on Local: %d, Incompatible: %d, Duplicate: %d" % (
+        len(local_tracks), len(incompatible_track_list), len(local_duplicate_track_list)))
+
+    message("Deleting...")
+    delete_songs = []
+    delete_tracks = []
+    for track in duplicate_track_list:
+        delete_songs.append(track["id"])
+        delete_tracks.append(track)
+
+    for track_key, track in stored_tracks.items():
+        if track_key not in local_tracks:
+            delete_songs.append(track["id"])
+            delete_tracks.append(track)
+
+    if 0 < len(delete_songs):
+        client.delete_songs(delete_songs)
+        for track in delete_tracks:
+            message("Deleted: %s from %s <%s>" % (track["title"], track["album"], track["artist"]))
+
+    info("Delete on Play Music has been completed: %s song(s)" % len(delete_songs))
+
+    message("Uploading...")
+    upload_songs = []
+    for track_key, track in local_tracks.items():
+        if track_key not in stored_tracks:
+            upload_songs.append(track["filepath"])
+
+    if 0 < len(upload_songs):
+        result = manager.upload(upload_songs)
+        info("  Uploaded: %d, Not Uploaded: %d" % (len(result[0]), len(result[2])))
+
+        uploaded = result[0]
+        for f in uploaded.keys():
+            message("    Uploaded: %s" % f)
+
+        not_uploaded = result[2]
+        for f, r in not_uploaded.items():
+            message("    Not Uploaded: [%s] %s" % (f, r))
+
+    info("Upload to Play Music has been completed: %s song(s)" % len(upload_songs))
+
+    log("######## TERMINATED at %s ########" % datetime.now().isoformat())
+    sys.exit(0)
 
 
-message("Deleting...")
-deleteSongs = []
-deleteTracks = []
-for track in duplicateTrackList:
-    deleteSongs.append(track["id"])
-    deleteTracks.append(track)
-
-for trackKey, track in storedTracks.items():
-    if trackKey not in localTracks:
-        deleteSongs.append(track["id"])
-        deleteTracks.append(track)
-
-if 0 < len(deleteSongs):
-    client.delete_songs(deleteSongs)
-    for track in deleteTracks:
-        message("Deleted: %s from %s <%s>" % (track["title"], track["album"], track["artist"]))
-
-info("Delete on Play Music has been completed: %s song(s)" % len(deleteSongs))
-
-
-message("Uploading...")
-uploadSongs = []
-for trackKey, track in localTracks.items():
-    if trackKey not in storedTracks:
-        uploadSongs.append(track["filepath"])
-
-if 0 < len(uploadSongs):
-    result = manager.upload(uploadSongs)
-    info("  Uploaded: %d, Not Uploaded: %d" % (len(result[0]), len(result[2])))
-
-    uploaded = result[0]
-    for f in uploaded.keys():
-        message("    Uploaded: %s" % f)
-
-    notUploaded = result[2]
-    for f, r in notUploaded.items():
-        message("    Not Uploaded: [%s] %s" % (f, r))
-
-info("Upload to Play Music has been completed: %s song(s)" % len(uploadSongs))
-
-
-log("######## TERMINATED at %s ########" % datetime.now().isoformat())
-sys.exit(0)
-
+if __name__ == "__main__":
+    main()
