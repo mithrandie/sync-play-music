@@ -11,7 +11,7 @@ A Utility for syncronizing music files between Google Play Music and your comput
 
 ## Requirements
 
-- Python 2.7
+- Python 3.7
 
 ### Optional
 
