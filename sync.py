@@ -74,18 +74,17 @@ def main():
     except Exception as e:
         exit_with_error("Cannot read config file:" + str(e))
 
-    manager = Musicmanager()
-    if not manager.login():
-        warn("Please authorize your account and re-run this script.")
-        manager.perform_oauth()
+    client = Mobileclient()
+    if not client.oauth_login(Mobileclient.FROM_MAC_ADDRESS):
+        warn("Please authorize your account for Music Client and re-run this script.")
+        client.perform_oauth()
         sys.exit(0)
 
-    client = Mobileclient()
-    if not client.login(
-            get_config(config, "Auth.Account"),
-            get_config(config, "Auth.Password"),
-            Mobileclient.FROM_MAC_ADDRESS):
-        exit_with_error("Authorization failed.")
+    manager = Musicmanager()
+    if not manager.login():
+        warn("Please authorize your account for Music Manager and re-run this script.")
+        manager.perform_oauth()
+        sys.exit(0)
 
     message("Retriving Uploaded Songs...")
     library = client.get_all_songs()
