@@ -1,9 +1,3 @@
-Auth:
-    # Your google account
-    Account:
-    # Password for your google account
-    Password:
-
 Upload:
     # Path of your music directories
     Directories:
